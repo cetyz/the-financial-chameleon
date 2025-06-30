@@ -54,10 +54,23 @@ The main function expects a request parameter but can be tested locally by modif
 
 **CRITICAL**: All GitHub operations (commits, pushes, pulls) must use the authentication token stored in `.env` file in the repository root.
 
+### .env File Format Requirements
+The `.env` file must follow standard format without spaces around the equals sign:
+```
+GITHUB_TOKEN="your_token_here"
+```
+**NOT**:
+```
+GITHUB_TOKEN = "your_token_here"
+```
+
 ### Git Authentication Setup
 ```bash
-# Load token from .env file
-export GITHUB_TOKEN="$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d ' "')"
+# CORRECT: Use source to load .env variables
+source .env
+
+# ALTERNATIVE: Extract token manually (if source doesn't work)
+export GITHUB_TOKEN="$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d '"')"
 
 # For push operations, use:
 git push https://$GITHUB_TOKEN@github.com/cetyz/the-financial-chameleon.git main
@@ -68,12 +81,16 @@ git clone https://$GITHUB_TOKEN@github.com/cetyz/the-financial-chameleon.git
 
 ### Standard Git Workflow
 1. Make changes to files
-2. Stage changes: `git add .`
+2. Stage changes: `git add .` (but **NEVER** stage .env file)
 3. Commit with proper message format
-4. **Always authenticate using token from .env**: `export GITHUB_TOKEN="$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d ' "')"`
+4. **Load environment**: `source .env`
 5. Push: `git push https://$GITHUB_TOKEN@github.com/cetyz/the-financial-chameleon.git main`
 
-**Note**: Never use GUI authentication or manual token entry - always use the token from `.env` file for consistency and security.
+### Important Security Notes
+- **NEVER commit the .env file** - it contains private authentication tokens
+- The .env file should be in .gitignore to prevent accidental commits
+- Always use `source .env` as the primary method to load environment variables
+- If `source .env` fails, use the manual export method as fallback
 
 ## Key Dependencies
 
