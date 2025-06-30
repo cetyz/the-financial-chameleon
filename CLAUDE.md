@@ -59,38 +59,27 @@ The `.env` file must follow standard format without spaces around the equals sig
 ```
 GITHUB_TOKEN="your_token_here"
 ```
-**NOT**:
-```
-GITHUB_TOKEN = "your_token_here"
-```
 
-### Git Authentication Setup
+### Git Authentication Setup (One-time setup)
 ```bash
-# CORRECT: Use source to load .env variables
-source .env
+# Configure Git to use credential helper
+git config --local credential.helper store
 
-# ALTERNATIVE: Extract token manually (if source doesn't work)
-export GITHUB_TOKEN="$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d '"')"
-
-# For push operations, use:
-git push https://$GITHUB_TOKEN@github.com/cetyz/the-financial-chameleon.git main
-
-# For clone operations (if needed):
-git clone https://$GITHUB_TOKEN@github.com/cetyz/the-financial-chameleon.git
+# Store GitHub credentials (extracts token from .env file)
+echo "https://$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d '\"'):@github.com" > ~/.git-credentials
 ```
 
 ### Standard Git Workflow
 1. Make changes to files
 2. Stage changes: `git add .` (but **NEVER** stage .env file)
 3. Commit with proper message format
-4. **Load environment**: `source .env`
-5. Push: `git push https://$GITHUB_TOKEN@github.com/cetyz/the-financial-chameleon.git main`
+4. Push: `git push origin main`
 
 ### Important Security Notes
 - **NEVER commit the .env file** - it contains private authentication tokens
 - The .env file should be in .gitignore to prevent accidental commits
-- Always use `source .env` as the primary method to load environment variables
-- If `source .env` fails, use the manual export method as fallback
+- The credential setup is one-time only - subsequent pushes will work automatically
+- If authentication fails, re-run the credential setup commands above
 
 ## Key Dependencies
 
