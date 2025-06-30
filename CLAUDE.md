@@ -50,6 +50,31 @@ python main.py
 ### Testing Cloud Function
 The main function expects a request parameter but can be tested locally by modifying the main block.
 
+## Git Operations & Authentication
+
+**CRITICAL**: All GitHub operations (commits, pushes, pulls) must use the authentication token stored in `.env` file in the repository root.
+
+### Git Authentication Setup
+```bash
+# Load token from .env file
+export GITHUB_TOKEN="$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d ' "')"
+
+# For push operations, use:
+git push https://$GITHUB_TOKEN@github.com/cetyz/the-financial-chameleon.git main
+
+# For clone operations (if needed):
+git clone https://$GITHUB_TOKEN@github.com/cetyz/the-financial-chameleon.git
+```
+
+### Standard Git Workflow
+1. Make changes to files
+2. Stage changes: `git add .`
+3. Commit with proper message format
+4. **Always authenticate using token from .env**: `export GITHUB_TOKEN="$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d ' "')"`
+5. Push: `git push https://$GITHUB_TOKEN@github.com/cetyz/the-financial-chameleon.git main`
+
+**Note**: Never use GUI authentication or manual token entry - always use the token from `.env` file for consistency and security.
+
 ## Key Dependencies
 
 - **yfinance**: Stock market data retrieval
