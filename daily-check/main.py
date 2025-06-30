@@ -10,50 +10,65 @@ import yfinance as yf
 import telegram
 
 
-def get_moving_averages(ticker) -> dict:
+def get_ticker_data(ticker) -> pd.DataFrame:
     """
-    Calculate moving averages for a given stock ticker.
+    Get raw ticker data from yfinance.
     
     Args:
         ticker (str): Stock ticker symbol (e.g., 'VOO', 'AAPL')
         
     Returns:
-        dict: Dictionary containing price, ma50, ma100, ma200 values
+        pd.DataFrame: Raw price data with OHLCV columns
     """
-    ticker_data = yf.Ticker(ticker)
-    df = ticker_data.history(period='201d')
 
+    ticker_data = yf.Ticker(ticker)
+    return ticker_data.history(period='201d')
+
+def process_data(ticker_df) -> pd.DataFrame:
+    """
+    Process ticker data to calculate moving averages and signals.
+    Returns only the last two complete rows.
+    
+    Args:
+        ticker_df (pd.DataFrame): Raw ticker data from get_ticker_data()
+        
+    Returns:
+        pd.DataFrame: Processed data with moving averages and signals (last 2 rows only)
+    """
+    df = ticker_df.copy()
+
+    # Calculate moving averages
     df['50ma'] = df['Close'].rolling(window=50, center=False).mean()
     df['100ma'] = df['Close'].rolling(window=100, center=False).mean()
     df['200ma'] = df['Close'].rolling(window=200, center=False).mean()
-    
-    price = df.iloc[-1]['Close']
-    ma50 = df.iloc[-1]['50ma']
-    ma100 = df.iloc[-1]['100ma']
-    ma200 = df.iloc[-1]['200ma']
 
-    data = {
-        'price': price,
-        'ma50': ma50,
-        'ma100': ma100,
-        'ma200': ma200,
-    }
+    # Calculate signals for each row
+    df['signal'] = 'placeholder' # TODO: implement strategy function to get signal
 
-    return data
+    # Drop rows with missing moving average data
+    df_complete = df.dropna()    
 
+    # Return only the last 2 rows
+    return df_complete.tail(2)
 
-def get_bull_bear(price, ma50, ma200) -> str:
+def get_bull_bear(series) -> str:
     """
-    Determine market sentiment based on price and moving averages.
+    Determine market sentiment based on price and moving averages from a pandas Series.
     
     Args:
-        price (float): Current stock price
-        ma50 (float): 50-day moving average
-        ma200 (float): 200-day moving average
+        series (pd.Series): A row from the dataframe containing Close, 50ma, 200ma
         
     Returns:
         str: Market sentiment ('bull', 'bear', or 'neutral')
     """
+    price = series['Close']
+    ma50 = series['50ma']
+    ma200 = series['200ma']
+    
+    # Handle missing data
+    if pd.isna(price) or pd.isna(ma50) or pd.isna(ma200):
+        return 'unknown'
+    
     if (price > ma50) and (ma50 > ma200):
         return 'bull'
     elif (price < ma50) and (ma50 < ma200):
@@ -63,15 +78,18 @@ def get_bull_bear(price, ma50, ma200) -> str:
 
 if __name__ == '__main__':
     
-    price_data = get_moving_averages('VOO')
-    ma50 = price_data['ma50']
-    ma200 = price_data['ma200']
-    price = price_data['price']
-    bull_bear = get_bull_bear(price, ma50, ma200)
+    # get raw data
+    raw_data = get_ticker_data('VOO')
 
-    print(price)
-    print(ma50)
-    print(ma200)
-    print(bull_bear)
+    # process data and get the last 2 complete rows
+    processed_data = process_data(raw_data)
+
+    print(f"Number of complete rows: {len(processed_data)}")
+    print("\nProcessed data:")
+    print(processed_data[['Close', '50ma', '200ma', 'signal']])
+
+    sentiment = get_bull_bear(processed_data.iloc[-1])
+    print(sentiment)
+
 
     
