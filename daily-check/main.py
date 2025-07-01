@@ -160,14 +160,14 @@ def add_signal(processed_df: pd.DataFrame) -> pd.DataFrame:
 def process_data(ticker_df: pd.DataFrame, raw_fng_data: dict) -> pd.DataFrame:
     """
     Process raw ticker data and FNG data into a combined dataframe with all features.
-    Returns only the last two complete rows.
+    Returns only the last two complete rows with bull/bear sentiment included.
     
     Args:
         ticker_df (pd.DataFrame): Raw ticker data from get_ticker_data()
         raw_fng_data (dict): Raw FNG data from get_raw_historical_fng()
         
     Returns:
-        pd.DataFrame: Processed data with moving averages and FNG data (last 2 rows only)
+        pd.DataFrame: Processed data with moving averages, FNG data, and bull/bear sentiment (last 2 rows only)
     """
     # Process FNG data
     fng_df = process_fng(raw_fng_data)
@@ -194,33 +194,52 @@ def process_data(ticker_df: pd.DataFrame, raw_fng_data: dict) -> pd.DataFrame:
     # Drop rows with missing moving average data
     df_complete = df_combined.dropna(subset=['50ma', '100ma', '200ma'])
     
+    # Add bull/bear sentiment
+    df_with_sentiment = add_bull_bear(df_complete)
+    
     # Return only the last 2 rows
-    return df_complete.tail(2)
+    return df_with_sentiment.tail(2)
 
-def get_bull_bear(series) -> str:
+def add_bull_bear(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Determine market sentiment based on price and moving averages from a pandas Series.
+    Add bull/bear sentiment column to dataframe based on price and moving averages.
     
     Args:
-        series (pd.Series): A row from the dataframe containing Close, 50ma, 200ma
+        df (pd.DataFrame): DataFrame that must contain columns 'Close', '50ma', '200ma'
         
     Returns:
-        str: Market sentiment ('bull', 'bear', or 'neutral')
+        pd.DataFrame: DataFrame with 'bullbear' column added
+        
+    Raises:
+        ValueError: If required columns are missing from the dataframe
     """
-    price = series['Close']
-    ma50 = series['50ma']
-    ma200 = series['200ma']
+    # Check for required columns
+    required_columns = ['Close', '50ma', '200ma']
+    missing_columns = [col for col in required_columns if col not in df.columns]
     
-    # Handle missing data
-    if pd.isna(price) or pd.isna(ma50) or pd.isna(ma200):
-        return 'unknown'
+    if missing_columns:
+        raise ValueError(f"DataFrame is missing required columns: {missing_columns}")
     
-    if (price > ma50) and (ma50 > ma200):
-        return 'bull'
-    elif (price < ma50) and (ma50 < ma200):
-        return 'bear'
-    else:
-        return 'neutral'
+    df_copy = df.copy()
+    
+    def determine_sentiment(row):
+        price = row['Close']
+        ma50 = row['50ma']
+        ma200 = row['200ma']
+        
+        # Handle missing data
+        if pd.isna(price) or pd.isna(ma50) or pd.isna(ma200):
+            return 'unknown'
+        
+        if (price > ma50) and (ma50 > ma200):
+            return 'bull'
+        elif (price < ma50) and (ma50 < ma200):
+            return 'bear'
+        else:
+            return 'neutral'
+    
+    df_copy['bullbear'] = df_copy.apply(determine_sentiment, axis=1)
+    return df_copy
 
 if __name__ == '__main__':
     
@@ -236,11 +255,9 @@ if __name__ == '__main__':
 
     print(f"Number of complete rows: {len(final_data)}")
     print("\nProcessed data:")
-    print(final_data[['Close', '50ma', '200ma', 'signal', 'fng_value', 'rating']])
 
-    sentiment = get_bull_bear(final_data.iloc[-1])
-    print(sentiment)
-    print(final_data)
+
+    print(final_data[['Close', '50ma', '200ma', 'bullbear', 'fng_value', 'rating', 'signal']])
 
 
     
