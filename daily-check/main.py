@@ -241,7 +241,60 @@ def add_bull_bear(df: pd.DataFrame) -> pd.DataFrame:
     df_copy['bullbear'] = df_copy.apply(determine_sentiment, axis=1)
     return df_copy
 
+def access_secret(secret_name):
+
+    from google.cloud import secretmanager
+
+    secret_dict = {
+        'financial-chameleon': 'the-financial-chameleon-tele-bot',
+        'trading-chameleon': 'the-trading-chameleon-tele-bot',
+        'crypto-chameleon': 'the-crypto-chameleon-tele-bot'
+    }
+
+    client = secretmanager.SecretManagerServiceClient()
+    project_id = "the-financial-chameleon"
+    secret_id = secret_dict[secret_name]
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+    response = client.access_secret_version(request={"name": name})
+
+    return response.payload.data.decode('UTF-8')
+
+def get_telebot_token(bot_name):
+    import os
+    
+    # Check if running in GCP (environment variable is set)
+    if os.getenv('GOOGLE_CLOUD_PROJECT'):
+        # Running in GCP, use Secret Manager
+        return access_secret(bot_name)
+    else:
+        # Running locally, use environment variables
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        token_dict = {
+            'financial-chameleon': 'F_TELEBOT_TOKEN',
+            'trading-chameleon': 'T_TELEBOT_TOKEN',
+            'crypto-chameleon': 'C_TELEBOT_TOKEN',
+        }
+        
+        env_var_name = token_dict.get(bot_name)
+        if not env_var_name:
+            raise ValueError(f"Unknown bot name: {bot_name}")
+            
+        token = os.getenv(env_var_name)
+        if not token:
+            raise ValueError(f"Token not found for {bot_name}. Check your .env file for {env_var_name}")
+            
+        return token
+
+async def send_message(bot_name, chat_id, msg, parse_mode=None):
+    token = get_telebot_token(bot_name)
+    bot = telegram.Bot(token=token)
+    async with bot:
+        await bot.send_message(chat_id=chat_id, text=msg, parse_mode=parse_mode)
+
 if __name__ == '__main__':
+    import asyncio
     
     # get raw data
     raw_ticker_data = get_ticker_data('VOO')
@@ -253,11 +306,25 @@ if __name__ == '__main__':
     # add signals to processed data
     final_data = add_signal(processed_data)
 
-    print(f"Number of complete rows: {len(final_data)}")
-    print("\nProcessed data:")
-
-
-    print(final_data[['Close', '50ma', '200ma', 'bullbear', 'fng_value', 'rating', 'signal']])
+    # Convert final_data to simple string for Telegram message
+    telegram_msg = f"📊 VOO Analysis ({len(final_data)} rows)\n\n"
+    
+    for _, row in final_data.iterrows():
+        telegram_msg += f"Date: {row['date']}\n"
+        telegram_msg += f"Close: ${row['Close']:.2f}\n"
+        telegram_msg += f"50MA: ${row['50ma']:.2f}\n"
+        telegram_msg += f"200MA: ${row['200ma']:.2f}\n"
+        telegram_msg += f"Sentiment: {row['bullbear']}\n"
+        telegram_msg += f"F&G: {row['fng_value']} ({row['rating']})\n"
+        telegram_msg += f"Signal: {row['signal']}\n"
+        telegram_msg += "─" * 20 + "\n"
+    
+    # Send message via Telegram
+    asyncio.run(send_message(
+        bot_name='financial-chameleon',
+        chat_id='@testchameleonchannel',
+        msg=telegram_msg
+    ))
 
 
     
