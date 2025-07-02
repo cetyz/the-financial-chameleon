@@ -293,7 +293,8 @@ async def send_message(bot_name, chat_id, msg, parse_mode=None):
     async with bot:
         await bot.send_message(chat_id=chat_id, text=msg, parse_mode=parse_mode)
 
-if __name__ == '__main__':
+def main(request=None):
+    """Cloud Function entry point and main logic"""
     import asyncio
     
     # get raw data
@@ -325,6 +326,11 @@ if __name__ == '__main__':
         chat_id='@testchameleonchannel',
         msg=telegram_msg
     ))
+    
+    return "Daily check completed successfully"
+
+if __name__ == '__main__':
+    main()
 
 
     

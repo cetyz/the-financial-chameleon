@@ -75,6 +75,11 @@ echo "https://$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d '\"'):@github.com
   - Purpose: Cloud Scheduler-invoked Cloud Functions
   - Role: `roles/cloudfunctions.invoker`
   - Description: "Claude-created SA for Cloud Scheduler-invoked Cloud Functions"
+- **Daily Check Service Account**: `fin-cham-daily-check-sa@the-financial-chameleon.iam.gserviceaccount.com`
+  - Purpose: Daily check Cloud Function runtime execution
+  - Role: `roles/secretmanager.secretAccessor`
+  - Description: "Claude-created SA that will handle the financial chameleon daily check runtime upon cloud function invocation"
+  - Required for: Accessing Telegram bot tokens from Secret Manager during Cloud Function execution
 
 ### Google Cloud CLI
 - **CRITICAL**: Always use the WSL installation of gcloud, not the Windows installation
