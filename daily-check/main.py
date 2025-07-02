@@ -261,8 +261,11 @@ def access_secret(secret_name):
 def get_telebot_token(bot_name):
     import os
     
-    # Check if running in GCP (environment variable is set)
-    if os.getenv('GOOGLE_CLOUD_PROJECT'):
+    # Check if running in GCP Cloud Functions (multiple environment variables indicate GCP)
+    if (os.getenv('GOOGLE_CLOUD_PROJECT') or 
+        os.getenv('FUNCTION_NAME') or 
+        os.getenv('K_SERVICE') or 
+        os.getenv('GCLOUD_PROJECT')):
         # Running in GCP, use Secret Manager
         return access_secret(bot_name)
     else:
