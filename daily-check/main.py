@@ -9,8 +9,7 @@ import pandas as pd
 import fear_and_greed
 import yfinance as yf
 
-# telegram
-import telegram
+# telegram - using requests for synchronous HTTP calls
 
 
 def get_ticker_data(ticker) -> pd.DataFrame:
@@ -287,15 +286,24 @@ def get_telebot_token(bot_name):
             
         return token
 
-async def send_message(bot_name, chat_id, msg, parse_mode=None):
+def send_message(bot_name, chat_id, msg, parse_mode=None):
     token = get_telebot_token(bot_name)
-    bot = telegram.Bot(token=token)
-    async with bot:
-        await bot.send_message(chat_id=chat_id, text=msg, parse_mode=parse_mode)
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    
+    data = {
+        'chat_id': chat_id,
+        'text': msg
+    }
+    
+    if parse_mode:
+        data['parse_mode'] = parse_mode
+    
+    response = requests.post(url, data=data)
+    response.raise_for_status()
+    return response.json()
 
 def main(request=None):
     """Cloud Function entry point and main logic"""
-    import asyncio
     
     # get raw data
     raw_ticker_data = get_ticker_data('VOO')
@@ -321,11 +329,11 @@ def main(request=None):
         telegram_msg += "─" * 20 + "\n"
     
     # Send message via Telegram
-    asyncio.run(send_message(
+    send_message(
         bot_name='financial-chameleon',
         chat_id='@testchameleonchannel',
         msg=telegram_msg
-    ))
+    )
     
     return "Daily check completed successfully"
 
