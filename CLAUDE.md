@@ -68,7 +68,16 @@ echo "https://$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d '\"'):@github.com
 - Main channel: '@thefinancialchameleon'
 - Debug channel: '@testchameleonchannel'
 
-### GCP Service Account
-- Service account JSON file: `private/the-financial-chameleon-bf516ef64faa.json`
-- **NEVER commit the private folder** - it contains sensitive authentication credentials
+### GCP Service Accounts
+- **Admin Service Account**: `private/the-financial-chameleon-bf516ef64faa.json`
+  - **NEVER commit the private folder** - it contains sensitive authentication credentials
+- **Cloud Scheduler Service Account**: `cloud-scheduler-sa@the-financial-chameleon.iam.gserviceaccount.com`
+  - Purpose: Cloud Scheduler-invoked Cloud Functions
+  - Role: `roles/cloudfunctions.invoker`
+  - Description: "Claude-created SA for Cloud Scheduler-invoked Cloud Functions"
+
+### Google Cloud CLI
+- **CRITICAL**: Always use the WSL installation of gcloud, not the Windows installation
+- **REQUIRED**: Use the full path `/home/cetyz/google-cloud-sdk/bin/gcloud` for all gcloud commands to avoid conflicts with Windows installation
+- Ensure `gcloud` commands are run within the WSL environment to maintain consistency with the project setup
 
