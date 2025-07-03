@@ -90,6 +90,9 @@ def process_fng(raw_data: dict) -> pd.DataFrame:
         fng_df['x'] = pd.to_datetime(fng_df['x'], unit='ms')
         fng_df = fng_df.rename(columns={'x': 'date', 'y': 'fng_value'})
         
+        # Normalize date to just date part (removes time component)
+        fng_df['date'] = fng_df['date'].dt.date
+        
         # Add rating column based on fng_value
         def get_rating(value):
             if value <= 25:
@@ -111,7 +114,7 @@ def process_fng(raw_data: dict) -> pd.DataFrame:
         # Sort by date
         fng_df = fng_df.sort_values('date')
         
-        # Drop duplicates if any
+        # Drop duplicates by date, keeping the last (most recent) entry
         fng_df = fng_df.drop_duplicates(subset=['date'], keep='last')
         
         return fng_df[['date', 'fng_value', 'rating']]
@@ -151,8 +154,16 @@ def add_signal(processed_df: pd.DataFrame) -> pd.DataFrame:
     """
     df = processed_df.copy()
     
-    # Add placeholder signal column
-    df['signal'] = 'placeholder'  # TODO: implement strategy function to get signal
+    df['signal'] = np.where(
+        # always 'buy' signal when market is fearful
+        df['fng_value'] < 40, 'BUY', np.where(
+            # always 'wait' signal when market is greedy
+            df['fng_value'] > 60, 'WAIT', np.where(
+                # if neutral, only buy based on moving average conditions
+                (df['Close'] > df['200ma']) & (df['Close'] < df['50ma']) & (df['50ma'] > df['200ma']), 'BUY', 'WAIT'
+            )
+        )
+    )
     
     return df
 
@@ -180,8 +191,6 @@ def process_data(ticker_df: pd.DataFrame, raw_fng_data: dict) -> pd.DataFrame:
     
     # Prepare FNG data for joining
     if not fng_df.empty:
-        fng_df['date'] = pd.to_datetime(fng_df['date']).dt.date
-        
         # Join FNG data with ticker data on date
         df_combined = df_with_ma.merge(fng_df, on='date', how='left')
     else:
@@ -317,9 +326,20 @@ def main(request=None):
     
     # add signals to processed data
     final_data = add_signal(processed_data)
+    
+    # Ensure we have exactly 2 rows for signal comparison
+    if len(final_data) != 2:
+        raise ValueError(f"Expected exactly 2 rows for analysis, got {len(final_data)}")
 
+    # Check if signal changed between the two rows
+    signals = final_data['signal'].tolist()
+    if signals[0] == signals[1]:
+        signal_change_msg = "Signal unchanged. No message sent to main channel.\n\n"
+    else:
+        signal_change_msg = f"❗ Signal changed! Signal is now {signals[1]}. Update will be sent to main channel. ❗\n\n"
+    
     # Convert final_data to simple string for Telegram message
-    telegram_msg = f"📊 VOO Analysis ({len(final_data)} rows)\n\n"
+    telegram_msg = signal_change_msg + "═" * 15 + "\n\n" + f"📊 VOO Analysis ({len(final_data)} rows)\n\n"
     
     for _, row in final_data.iterrows():
         telegram_msg += f"Date: {row['date']}\n"
@@ -329,7 +349,7 @@ def main(request=None):
         telegram_msg += f"Sentiment: {row['bullbear']}\n"
         telegram_msg += f"F&G: {row['fng_value']} ({row['rating']})\n"
         telegram_msg += f"Signal: {row['signal']}\n"
-        telegram_msg += "─" * 20 + "\n"
+        telegram_msg += "─" * 15 + "\n"
     
     # Send message via Telegram
     send_message(
@@ -337,7 +357,7 @@ def main(request=None):
         chat_id='@testchameleonchannel',
         msg=telegram_msg
     )
-    
+
     return "Daily check completed successfully"
 
 if __name__ == '__main__':
