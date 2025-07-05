@@ -86,6 +86,11 @@ echo "https://$(grep GITHUB_TOKEN .env | cut -d'=' -f2 | tr -d '\"'):@github.com
 - **REQUIRED**: Use the full path `/home/cetyz/google-cloud-sdk/bin/gcloud` for all gcloud commands to avoid conflicts with Windows installation
 - Ensure `gcloud` commands are run within the WSL environment to maintain consistency with the project setup
 
+### Bash Tool Timeout Requirements
+- **CRITICAL**: Cloud Function deployments require extended timeouts due to build and deployment time (3-5 minutes)
+- **REQUIRED**: Always use `--timeout=600000` (10 minutes) parameter when running gcloud functions deploy commands
+- Default bash timeout of 2 minutes will always fail for Cloud Function deployments
+
 ## Cloud Functions & Scheduler Deployments
 
 ### Current Production Deployment

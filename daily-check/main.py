@@ -318,9 +318,9 @@ def send_signal_change_message(bot_name, chat_id, current_signal, current_row, d
     """Send signal change message to telegram channel"""
     # Choose emoji based on signal
     if current_signal == 'BUY':
-        signal_emoji = "✅"
+        signal_emoji = "🟢"
     else:  # WAIT
-        signal_emoji = "❌"
+        signal_emoji = "🔴"
     
     # Generate qualitative message based on signal and market conditions
     def get_qualitative_message(signal, row):
@@ -343,10 +343,10 @@ def send_signal_change_message(bot_name, chat_id, current_signal, current_row, d
     telegram_msg = ""
     if debug:
         telegram_msg += "[DEBUGGING MESSAGE]\n\n"
-    telegram_msg += f"🚨 SIGNAL CHANGE ALERT 🚨\n\n"
+    telegram_msg += f"🦎 SIGNAL SHIFT 🦎\n\n"
     telegram_msg += f"{signal_emoji} New Signal: {current_signal}\n\n"
     telegram_msg += f"{qualitative_msg}\n\n"
-    telegram_msg += f"🔔 Stay informed with @thefinancialchameleon"
+    telegram_msg += f"🔔 Stay adaptable to market shifts with @thefinancialchameleon"
     
     # Send to main channel
     send_message(bot_name, chat_id, telegram_msg)
