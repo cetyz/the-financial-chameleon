@@ -157,13 +157,20 @@ def add_signal(processed_df: pd.DataFrame) -> pd.DataFrame:
     """
     df = processed_df.copy()
     
+    # Calculate previous close for CAUTIOUS BUY logic
+    df['prev_close'] = df['Close'].shift(1)
+    df['close_drop_pct'] = ((df['Close'] - df['prev_close']) / df['prev_close']) * 100
+    
     df['signal'] = np.where(
         # always 'buy' signal when market is fearful
         df['fng_value'] < 40, 'BUY', np.where(
-            # always 'wait' signal when market is greedy
-            df['fng_value'] > 60, 'WAIT', np.where(
-                # if neutral, only buy based on moving average conditions
-                (df['Close'] > df['200ma']) & (df['Close'] < df['50ma']) & (df['50ma'] > df['200ma']), 'BUY', 'WAIT'
+            # CAUTIOUS BUY when close is at least 2% lower than previous close
+            df['close_drop_pct'] <= -2, 'CAUTIOUS BUY', np.where(
+                # always 'wait' signal when market is greedy
+                df['fng_value'] > 60, 'WAIT', np.where(
+                    # if neutral, only buy based on moving average conditions
+                    (df['Close'] > df['200ma']) & (df['Close'] < df['50ma']) & (df['50ma'] > df['200ma']), 'BUY', 'WAIT'
+                )
             )
         )
     )
@@ -322,6 +329,8 @@ def send_signal_change_message(bot_name, chat_id, current_signal, current_row, d
     # Choose emoji based on signal
     if current_signal == 'BUY':
         signal_emoji = "🟢"
+    elif current_signal == 'CAUTIOUS BUY':
+        signal_emoji = "🟡"
     else:  # WAIT
         signal_emoji = "🔴"
     
@@ -334,6 +343,8 @@ def send_signal_change_message(bot_name, chat_id, current_signal, current_row, d
                 return "Market fear has created a buying opportunity. Time to consider accumulating positions."
             else:
                 return "Technical conditions have aligned favorably. Market positioning looks attractive for entry."
+        elif signal == 'CAUTIOUS BUY':
+            return "The market saw a sharp drop yesterday. Consider accumulating today at your own discretion - volatility may present opportunities for patient investors."
         else:  # WAIT
             if fng_value > 60:
                 return "Market greed suggests caution. Consider waiting for better entry points."
