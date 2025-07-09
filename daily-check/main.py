@@ -86,12 +86,15 @@ def process_fng(raw_data: dict) -> pd.DataFrame:
         # Create DataFrame
         fng_df = pd.DataFrame(historical_data)
         
-        # Convert timestamp to readable date
+        # Convert timestamp to readable datetime
         fng_df['x'] = pd.to_datetime(fng_df['x'], unit='ms')
-        fng_df = fng_df.rename(columns={'x': 'date', 'y': 'fng_value'})
+        fng_df = fng_df.rename(columns={'x': 'datetime', 'y': 'fng_value'})
         
-        # Normalize date to just date part (removes time component)
-        fng_df['date'] = fng_df['date'].dt.date
+        # Filter to only keep rows with 00:00:00 timestamp (end-of-day values)
+        fng_df = fng_df[fng_df['datetime'].dt.time == pd.Timestamp('00:00:00').time()]
+        
+        # Now extract just the date part
+        fng_df['date'] = fng_df['datetime'].dt.date
         
         # Add rating column based on fng_value
         def get_rating(value):
@@ -106,6 +109,9 @@ def process_fng(raw_data: dict) -> pd.DataFrame:
             else:
                 return "Extreme Greed"
         
+        # Round fng_value to whole number (0 decimal places)
+        fng_df['fng_value'] = fng_df['fng_value'].round(0)
+        
         fng_df['rating'] = fng_df['fng_value'].apply(get_rating)
         
         # Reset index to have date as a column
@@ -113,9 +119,6 @@ def process_fng(raw_data: dict) -> pd.DataFrame:
         
         # Sort by date
         fng_df = fng_df.sort_values('date')
-        
-        # Drop duplicates by date, keeping the last (most recent) entry
-        fng_df = fng_df.drop_duplicates(subset=['date'], keep='last')
         
         return fng_df[['date', 'fng_value', 'rating']]
     
@@ -389,15 +392,26 @@ def main(request=None):
     # Convert final_data to simple string for Telegram message
     telegram_debug_msg = signal_change_msg + "═" * 15 + "\n\n" + f"📊 VOO Analysis ({len(final_data)} rows)\n\n"
     
+    previous_close = None
     for _, row in final_data.iterrows():
         telegram_debug_msg += f"Date: {row['date']}\n"
-        telegram_debug_msg += f"Close: ${row['Close']:.2f}\n"
+        
+        # Calculate percentage change for the second row
+        if previous_close is not None:
+            pct_change = ((row['Close'] - previous_close) / previous_close) * 100
+            sign = "+" if pct_change >= 0 else ""
+            telegram_debug_msg += f"Close: ${row['Close']:.2f} ({sign}{pct_change:.1f}%)\n"
+        else:
+            telegram_debug_msg += f"Close: ${row['Close']:.2f}\n"
+        
         telegram_debug_msg += f"50MA: ${row['50ma']:.2f}\n"
         telegram_debug_msg += f"200MA: ${row['200ma']:.2f}\n"
         telegram_debug_msg += f"Sentiment: {row['bullbear']}\n"
-        telegram_debug_msg += f"F&G: {row['fng_value']} ({row['rating']})\n"
+        telegram_debug_msg += f"F&G: {row['fng_value']:.0f} ({row['rating']})\n"
         telegram_debug_msg += f"Signal: {row['signal']}\n"
         telegram_debug_msg += "─" * 15 + "\n"
+        
+        previous_close = row['Close']
     
     # Send message via Telegram
     send_message(
