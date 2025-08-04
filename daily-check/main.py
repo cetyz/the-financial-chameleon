@@ -164,8 +164,8 @@ def add_signal(processed_df: pd.DataFrame) -> pd.DataFrame:
     df['signal'] = np.where(
         # always 'buy' signal when market is fearful
         df['fng_value'] < 40, 'BUY', np.where(
-            # CAUTIOUS BUY when close is at least 2% lower than previous close
-            df['close_drop_pct'] <= -2, 'CAUTIOUS BUY', np.where(
+            # CAUTIOUS BUY when close is at least 1.5% lower than previous close
+            df['close_drop_pct'] <= -1.5, 'CAUTIOUS BUY', np.where(
                 # always 'wait' signal when market is greedy
                 df['fng_value'] > 60, 'WAIT', np.where(
                     # if neutral, only buy based on moving average conditions
