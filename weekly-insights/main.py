@@ -24,7 +24,7 @@ def get_ticker_data(ticker) -> pd.DataFrame:
     """
 
     ticker_data = yf.Ticker(ticker)
-    return ticker_data.history(period='202d')
+    return ticker_data.history(period='201d')
 
 def get_raw_historical_fng(start_date=None, days_back=5) -> dict:
     """
@@ -175,20 +175,19 @@ def add_signal(processed_df: pd.DataFrame) -> pd.DataFrame:
         )
     )
     
-    # Return only the last 2 rows to maintain the expected output
-    return df.tail(2)
+    return df
 
 def process_data(ticker_df: pd.DataFrame, raw_fng_data: dict) -> pd.DataFrame:
     """
     Process raw ticker data and FNG data into a combined dataframe with all features.
-    Returns only the last three complete rows with bull/bear sentiment included.
+    Returns only the last two complete rows with bull/bear sentiment included.
     
     Args:
         ticker_df (pd.DataFrame): Raw ticker data from get_ticker_data()
         raw_fng_data (dict): Raw FNG data from get_raw_historical_fng()
         
     Returns:
-        pd.DataFrame: Processed data with moving averages, FNG data, and bull/bear sentiment (last 3 rows only)
+        pd.DataFrame: Processed data with moving averages, FNG data, and bull/bear sentiment (last 2 rows only)
     """
     # Process FNG data
     fng_df = process_fng(raw_fng_data)
@@ -209,17 +208,15 @@ def process_data(ticker_df: pd.DataFrame, raw_fng_data: dict) -> pd.DataFrame:
         df_combined = df_with_ma.copy()
         df_combined['fng_value'] = np.nan
         df_combined['rating'] = 'Unknown'
-
+    
     # Drop rows with missing moving average data
     df_complete = df_combined.dropna(subset=['50ma', '100ma', '200ma'])
-
+    
     # Add bull/bear sentiment
     df_with_sentiment = add_bull_bear(df_complete)
-
     
-    
-    # Return only the last 3 rows
-    return df_with_sentiment.tail(3)
+    # Return only the last 2 rows
+    return df_with_sentiment.tail(2)
 
 def add_bull_bear(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -377,11 +374,79 @@ def main(request=None):
 
     # process data and get the last 2 complete rows
     processed_data = process_data(raw_ticker_data, raw_fng_data)
-
-    print(processed_data)
-
+    
     # add signals to processed data
     final_data = add_signal(processed_data)
+    
+    # Ensure we have exactly 2 rows for signal comparison
+    if len(final_data) != 2:
+        raise ValueError(f"Expected exactly 2 rows for analysis, got {len(final_data)}")
+
+    # Check if signal changed between the two rows
+    signals = final_data['signal'].tolist()
+    if signals[0] == signals[1]:
+        signal_change_msg = "Signal unchanged. No message sent to main channel.\n\n"
+    else:
+        signal_change_msg = f"❗ Signal changed! Signal is now {signals[1]}. Update will be sent to main channel. ❗\n\n"
+
+        # Send signal change message to main channel
+        current_signal = signals[1]
+        current_row = final_data.iloc[1]
+        
+        send_signal_change_message(
+            bot_name='financial-chameleon',
+            chat_id='@thefinancialchameleon',
+            current_signal=current_signal,
+            current_row=current_row
+        )
+    
+    # Convert final_data to simple string for Telegram message
+    telegram_debug_msg = signal_change_msg + "═" * 15 + "\n\n" + f"📊 VOO Analysis ({len(final_data)} rows)\n\n"
+    
+    previous_close = None
+    for _, row in final_data.iterrows():
+        telegram_debug_msg += f"Date: {row['date']}\n"
+        
+        # Calculate percentage change for the second row
+        if previous_close is not None:
+            pct_change = ((row['Close'] - previous_close) / previous_close) * 100
+            sign = "+" if pct_change >= 0 else ""
+            telegram_debug_msg += f"Close: ${row['Close']:.2f} ({sign}{pct_change:.1f}%)\n"
+        else:
+            telegram_debug_msg += f"Close: ${row['Close']:.2f}\n"
+        
+        telegram_debug_msg += f"50MA: ${row['50ma']:.2f}\n"
+        telegram_debug_msg += f"200MA: ${row['200ma']:.2f}\n"
+        telegram_debug_msg += f"Sentiment: {row['bullbear']}\n"
+        telegram_debug_msg += f"F&G: {row['fng_value']:.0f} ({row['rating']})\n"
+        telegram_debug_msg += f"Signal: {row['signal']}\n"
+        telegram_debug_msg += "─" * 15 + "\n"
+        
+        previous_close = row['Close']
+    
+    # Send message via Telegram
+    send_message(
+        bot_name='financial-chameleon',
+        chat_id='@testchameleonchannel',
+        msg=telegram_debug_msg
+    )
+
+    # Debug test
+    debug = False
+    if debug:
+        # Calculate the actual current signal from the data
+        current_signal = final_data.iloc[1]['signal']
+        current_row = final_data.iloc[1]
+        
+        send_signal_change_message(
+            bot_name='financial-chameleon',
+            chat_id='@testchameleonchannel',
+            current_signal=current_signal,
+            current_row=current_row,
+            debug=True
+        )
+    
+    return "Daily check completed successfully"
 
 if __name__ == '__main__':
     main()

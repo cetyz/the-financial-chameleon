@@ -24,7 +24,7 @@ def get_ticker_data(ticker) -> pd.DataFrame:
     """
 
     ticker_data = yf.Ticker(ticker)
-    return ticker_data.history(period='201d')
+    return ticker_data.history(period='202d')
 
 def get_raw_historical_fng(start_date=None, days_back=5) -> dict:
     """
@@ -175,19 +175,20 @@ def add_signal(processed_df: pd.DataFrame) -> pd.DataFrame:
         )
     )
     
-    return df
+    # Return only the last 2 rows to maintain the expected output
+    return df.tail(2)
 
 def process_data(ticker_df: pd.DataFrame, raw_fng_data: dict) -> pd.DataFrame:
     """
     Process raw ticker data and FNG data into a combined dataframe with all features.
-    Returns only the last two complete rows with bull/bear sentiment included.
+    Returns only the last three complete rows with bull/bear sentiment included.
     
     Args:
         ticker_df (pd.DataFrame): Raw ticker data from get_ticker_data()
         raw_fng_data (dict): Raw FNG data from get_raw_historical_fng()
         
     Returns:
-        pd.DataFrame: Processed data with moving averages, FNG data, and bull/bear sentiment (last 2 rows only)
+        pd.DataFrame: Processed data with moving averages, FNG data, and bull/bear sentiment (last 3 rows only)
     """
     # Process FNG data
     fng_df = process_fng(raw_fng_data)
@@ -215,8 +216,8 @@ def process_data(ticker_df: pd.DataFrame, raw_fng_data: dict) -> pd.DataFrame:
     # Add bull/bear sentiment
     df_with_sentiment = add_bull_bear(df_complete)
     
-    # Return only the last 2 rows
-    return df_with_sentiment.tail(2)
+    # Return only the last 3 rows
+    return df_with_sentiment.tail(3)
 
 def add_bull_bear(df: pd.DataFrame) -> pd.DataFrame:
     """
